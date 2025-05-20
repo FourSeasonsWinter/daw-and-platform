@@ -15,4 +15,6 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
   @EntityGraph(attributePaths = "genre")
   @Query("SELECT t FROM Track t")
   List<Track> findAllWithGenre();
+  
+  List<Track> findAllWithTitle(String title);
 }

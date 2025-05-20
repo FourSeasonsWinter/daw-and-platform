@@ -1,8 +1,8 @@
 package com.example.server_api.controllers;
 
-import org.springframework.http.HttpStatus;
+import java.net.URI;
+
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,9 +17,7 @@ import com.example.server_api.dtos.ChangePasswordRequest;
 import com.example.server_api.dtos.UserDto;
 import com.example.server_api.dtos.UserPostRequest;
 import com.example.server_api.dtos.UserPutRequest;
-import com.example.server_api.entities.User;
-import com.example.server_api.mappers.UserMapper;
-import com.example.server_api.repositories.UserRepository;
+import com.example.server_api.services.UserService;
 
 import lombok.AllArgsConstructor;
 
@@ -28,18 +26,12 @@ import lombok.AllArgsConstructor;
 @RequestMapping("/users")
 public class UserController {
   
-  private UserRepository repository;
-  private UserMapper mapper;
+  private UserService service;
 
   @GetMapping("/{id}")
   public ResponseEntity<UserDto> getUser(@PathVariable Long id) {
-    User user = repository.findById(id).orElse(null);
-
-    if (user == null) {
-      return ResponseEntity.notFound().build();
-    }
-
-    return ResponseEntity.ok(mapper.toDto(user));
+    UserDto user = service.getUser(id);
+    return ResponseEntity.ok(user);
   }
 
   @PostMapping
@@ -47,13 +39,10 @@ public class UserController {
     @RequestBody UserPostRequest userRequest,
     UriComponentsBuilder uriBuilder
   ) {
-    var user = mapper.toEntity(userRequest);
-    repository.save(user);
+    UserDto user = service.createUser(userRequest);
+    URI uri = uriBuilder.path("/users/{id}").buildAndExpand(user.getId()).toUri();
 
-    var userDto = mapper.toDto(user);
-    var uri = uriBuilder.path("/users/{id}").buildAndExpand(userDto.getId()).toUri();
-    
-    return ResponseEntity.created(uri).body(userDto);
+    return ResponseEntity.created(uri).body(user);
   }
 
   @PostMapping("/{id}/change-password")
@@ -61,19 +50,7 @@ public class UserController {
     @PathVariable Long id,
     @RequestBody ChangePasswordRequest request
   ) {
-    var user = repository.findById(id).orElse(null);
-    if (user == null) {
-      return ResponseEntity.notFound().build();
-    }
-
-    var encoder = new BCryptPasswordEncoder();
-    if (encoder.encode(request.getOldPassword()) != user.getPassword()) {
-      return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-    }
-
-    user.setPassword(encoder.encode(request.getNewPassword()));
-    repository.save(user);
-
+    service.changePassword(id, request);
     return ResponseEntity.noContent().build();
   }
 
@@ -82,25 +59,13 @@ public class UserController {
     @PathVariable Long id,
     @RequestBody UserPutRequest request
   ) {
-    User user = repository.findById(id).orElse(null);
-    if (user == null) {
-      return ResponseEntity.notFound().build();
-    }
-
-    mapper.update(request, user);
-    repository.save(user);
-
-    return ResponseEntity.ok(mapper.toDto(user));
+    UserDto user = service.updateUser(id, request);
+    return ResponseEntity.ok(user);
   }
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-    User user = repository.findById(id).orElse(null);
-    if (user == null) {
-      return ResponseEntity.notFound().build();
-    }
-
-    repository.deleteById(id);
+    service.deleteUser(id);
     return ResponseEntity.noContent().build();
   }
 }
